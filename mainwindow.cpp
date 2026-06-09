@@ -6,37 +6,36 @@
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     setFixedSize(800, 800);
     setWindowTitle("Checkers");
+    setStatusBar(nullptr);
     initInterfaceButtons();
     updateButtonsVisibility();
 }
 
 MainWindow::~MainWindow() {
-    // Деструктор пуст, так как кнопки управляются Qt автоматически
+
 }
 
 // --- КНОПКИ ---
 void MainWindow::initInterfaceButtons() {
     QString btnStyle = "QPushButton { background-color: #4a4a4a; color: white; border: 2px solid #2a2a2a; border-radius: 5px; font-weight: bold; }";
 
-    // Центр доски: 400 (половина 800)
-    // Ставим кнопки в центр: x = 800/2 - 100 (ширина кнопки 200 / 2) = 300
     m_btnPlay = new QPushButton("ИГРАТЬ", this);
-    m_btnPlay->setGeometry(300, 300, 200, 50);
+    m_btnPlay->setGeometry(300, 320, 200, 50); // Кнопка "Играть" на Y = 320
     m_btnPlay->setStyleSheet(btnStyle);
     connect(m_btnPlay, &QPushButton::clicked, this, &MainWindow::onStartGameClicked);
 
     m_btnExitMenu = new QPushButton("ВЫХОД", this);
-    m_btnExitMenu->setGeometry(300, 370, 200, 50);
+    m_btnExitMenu->setGeometry(300, 390, 200, 50); // Кнопка "Выход" чуть ниже на Y = 390
     m_btnExitMenu->setStyleSheet(btnStyle);
     connect(m_btnExitMenu, &QPushButton::clicked, this, &MainWindow::onExitClicked);
 }
 
 void MainWindow::updateButtonsVisibility() {
-    bool inMenu = (m_gameState == GameState::MainMenu);
-    m_btnPlay->setVisible(inMenu);
-    m_btnExitMenu->setVisible(inMenu);
+    // Кнопки должны быть видны и в Главном меню, и на экране Конец Игры
+    bool showButtons = (m_gameState == GameState::MainMenu || m_gameState == GameState::GameOver);
+    m_btnPlay->setVisible(showButtons);
+    m_btnExitMenu->setVisible(showButtons);
 }
-
 // --- СЛОТЫ ---
 void MainWindow::onStartGameClicked() {
     m_gameState = GameState::GamePlay; // Исправлено на Gameplay
@@ -104,11 +103,33 @@ void MainWindow::paintEvent(QPaintEvent* event) {
             }
         }
     }
+    // 2. РИСУЕМ ОВЕРЛЕЙ
+    if (m_gameState != GameState::GamePlay) {
+        // Используем width() и height(), чтобы оверлей идеально закрывал ЛЮБОЙ размер окна
+        painter.setBrush(QColor(0, 0, 0, 220)); // Сделали чуть темнее (220 вместо 180) для солидности
+        painter.drawRect(0, 0, width(), height());
+
+        painter.setPen(Qt::white);
+        painter.setFont(QFont("Arial", 42, QFont::Bold)); // Немного увеличили шрифт
+
+        // Определяем текст
+        QString text;
+        if (m_gameState == GameState::MainMenu) {
+            text = "CHECKERS";
+        } else if (m_gameState == GameState::GameOver) {
+            int winner = m_controller.checkGameOver();
+            text = (winner == 1) ? "БЕЛЫЕ ПОБЕДИЛИ!" : "ЧЕРНЫЕ ПОБЕДИЛИ!";
+        }
+
+        // СДВИГАЕМ ТЕКСТ ВЫШЕ: вместо 0 по Y ставим 120, а высоту ограничиваем в 100 пикселей.
+        // Теперь заголовок будет гордо висеть вверху, не мешая кнопкам.
+        painter.drawText(0, 120, width(), 100, Qt::AlignCenter, text);
+    }
 }
 
 // --- КЛИКИ ---
 void MainWindow::mousePressEvent(QMouseEvent* event) {
-    if (m_gameState != GameState::GamePlay) return; // Исправлено на Gameplay
+    if (m_gameState != GameState::GamePlay) return;
 
     if (event->button() == Qt::LeftButton) {
         // Учитываем cellSize = 100
@@ -150,15 +171,35 @@ void MainWindow::mousePressEvent(QMouseEvent* event) {
 
                 int winner = m_controller.checkGameOver();
                 if (winner != 0) {
-                    QMessageBox::information(this, "Конец игры", (winner == 1) ? "Белые победили!" : "Черные победили!");
-                    m_controller.startNewGame();
-                    m_hasSelected = false;
+                    m_gameState = GameState::GameOver;
+                    updateButtonsVisibility();
+
                     update();
                 }
             } else {
                 m_hasSelected = false;
                 update();
             }
+        }
+    }
+}
+
+void MainWindow::keyPressEvent(QKeyEvent* event) {
+    if (event->key() == Qt::Key_Escape) {
+        // Если идет игра, выходим в главное меню
+        if (m_gameState == GameState::GamePlay) {
+            m_gameState = GameState::MainMenu;
+            m_hasSelected = false;
+            updateButtonsVisibility();
+            update();
+        }
+    }
+    if (event->key() == Qt::Key_R) {
+        // Быстрый перезапуск игры в любой момент
+        if (m_gameState == GameState::GamePlay) {
+            m_controller.startNewGame();
+            m_hasSelected = false;
+            update();
         }
     }
 }
