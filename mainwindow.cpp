@@ -1,108 +1,138 @@
 #include "mainwindow.h"
-#include "./ui_mainwindow.h"
+#include <QPainter>
+#include <QMouseEvent>
 #include <QMessageBox>
-MainWindow:: MainWindow(QWidget* parent)
-    : QMainWindow(parent)
-    , ui(new Ui::MainWindow)
-{
-    ui->setupUi(this);
 
-    setFixedSize(CELL_SIZE * 8, CELL_SIZE * 8); //задаем фиксированный размер окна, чтобы доска $8 \times 8$(по 60 пикселей) влезала идеально
+MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
+    setFixedSize(800, 800);
+    setWindowTitle("Checkers");
+    initInterfaceButtons();
+    updateButtonsVisibility();
 }
 
-MainWindow::~MainWindow(){
-    delete ui;
+MainWindow::~MainWindow() {
+    // Деструктор пуст, так как кнопки управляются Qt автоматически
 }
 
-void MainWindow::paintEvent(QPaintEvent* event){
+// --- КНОПКИ ---
+void MainWindow::initInterfaceButtons() {
+    QString btnStyle = "QPushButton { background-color: #4a4a4a; color: white; border: 2px solid #2a2a2a; border-radius: 5px; font-weight: bold; }";
+
+    // Центр доски: 400 (половина 800)
+    // Ставим кнопки в центр: x = 800/2 - 100 (ширина кнопки 200 / 2) = 300
+    m_btnPlay = new QPushButton("ИГРАТЬ", this);
+    m_btnPlay->setGeometry(300, 300, 200, 50);
+    m_btnPlay->setStyleSheet(btnStyle);
+    connect(m_btnPlay, &QPushButton::clicked, this, &MainWindow::onStartGameClicked);
+
+    m_btnExitMenu = new QPushButton("ВЫХОД", this);
+    m_btnExitMenu->setGeometry(300, 370, 200, 50);
+    m_btnExitMenu->setStyleSheet(btnStyle);
+    connect(m_btnExitMenu, &QPushButton::clicked, this, &MainWindow::onExitClicked);
+}
+
+void MainWindow::updateButtonsVisibility() {
+    bool inMenu = (m_gameState == GameState::MainMenu);
+    m_btnPlay->setVisible(inMenu);
+    m_btnExitMenu->setVisible(inMenu);
+}
+
+// --- СЛОТЫ ---
+void MainWindow::onStartGameClicked() {
+    m_gameState = GameState::GamePlay; // Исправлено на Gameplay
+    m_controller.startNewGame();
+    updateButtonsVisibility();
+    update();
+}
+
+void MainWindow::onExitClicked() {
+    close();
+}
+
+void MainWindow::onResetGameClicked() {
+    m_controller.startNewGame();
+    m_hasSelected = false; // Сбрасываем выбор, если он был
+    update();              // Перерисовываем экран
+}
+// --- ОТРИСОВКА ---
+void MainWindow::paintEvent(QPaintEvent* event) {
     Q_UNUSED(event);
     QPainter painter(this);
-    painter.setRenderHint(QPainter::Antialiasing); //Включаем сглаживание, чтобы круги шашек были ровными
+    painter.setRenderHint(QPainter::Antialiasing);
 
-    //проходим циклом по всей доске и рисуем клетки
+    // Доска 8x8, каждая клетка по 100px (800 / 8 = 100)
+    int cellSize = 100;
 
     for(int r = 0; r < 8; ++r){
         for(int c = 0; c < 8; ++c){
-            //определяем цвет клетки
+            painter.setRenderHint(QPainter::Antialiasing, false);
+            // Отключаем обводку в 1 пиксель
+            painter.setPen(Qt::NoPen);
 
-            if((r + c) % 2 == 0){
-                painter.setBrush(QColor(240,217,181)); //светло - бежевая клетка
-            }else{
-                painter.setBrush(QColor(181, 136, 99)); // коричневая клетка
-            }
-            // рисуем квадрат клетки
-            painter.drawRect(c * CELL_SIZE, r * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-            //Теперь проверяем, есть ли на этой клетке шашка и рисуем ее
+            painter.setBrush((r + c) % 2 == 0 ? QColor(240,217,181) : QColor(181, 136, 99));
+            painter.drawRect(c * cellSize, r * cellSize, cellSize, cellSize);
+
+
+            // --- 2. РИСУЕМ ШАШКУ И ВЫДЕЛЕНИЕ ---
+            // Включаем сглаживание обратно, чтобы шашки были круглыми и гладкими
+            painter.setRenderHint(QPainter::Antialiasing, true);
+
             Position pos{r, c};
             CellState state = m_controller.getBoard().getCell(pos);
-
-            //подсветка выбранной шашки
-            if (m_hasSelected){
-                painter.setBrush(Qt::NoBrush);
-                painter.setPen(QPen(QColor(46, 204, 113), 4));
-
-                painter.drawRect(m_selectedPos.col * CELL_SIZE, m_selectedPos.row * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+            // Подсветка выбранной шашки
+            if (m_hasSelected && m_selectedPos.row == r && m_selectedPos.col == c){
+                painter.setBrush(QColor(46, 204, 113, 100)); // Полупрозрачный зеленый
+                painter.drawRect(c * cellSize, r * cellSize, cellSize, cellSize);
             }
+
+            // Рисование шашки
             if (state != CellState::Empty){
                 bool isWhite = (state == CellState::WhitePiece || state == CellState::WhiteKing);
                 bool isKing = (state == CellState::WhiteKing || state == CellState::BlackKing);
 
-                if (isWhite) {
-                    painter.setBrush(Qt::white);
-                    painter.setPen (QPen(Qt::black, 2));
-                }else {
-                    painter.setBrush(QColor(40, 40, 40));
-                    painter.setPen(QPen(Qt::white, 2));
-                }
-                //рисуем круг шашки чуть меньше размера клетки, чтобы были отсутпы
-                int padding = 8;
-                painter.drawEllipse(c * CELL_SIZE + padding, r * CELL_SIZE + padding, CELL_SIZE - padding * 2, CELL_SIZE - padding * 2);
+                painter.setBrush(isWhite ? Qt::white : QColor(40, 40, 40));
+                painter.setPen(isWhite ? QPen(Qt::black, 2) : QPen(Qt::white, 2));
 
-                //кто нибудь, дайте этой пешке корону (Отрисовка короны у дамки)
+                int padding = 12;
+                painter.drawEllipse(c * cellSize + padding, r * cellSize + padding, cellSize - padding * 2, cellSize - padding * 2);
 
                 if (isKing){
-                    painter.setBrush(QColor(255, 215, 0));
-                    painter.setPen(QPen(Qt::black, 1));
-
-                    int kingPadding = CELL_SIZE / 3;
-                    painter.drawEllipse (c * CELL_SIZE + kingPadding, r * CELL_SIZE + kingPadding, CELL_SIZE - kingPadding * 2, CELL_SIZE - kingPadding * 2);
+                    painter.setBrush(QColor(255, 215, 0)); // Золотой цвет короны
+                    int kingPadding = cellSize / 3;
+                    painter.drawEllipse(c * cellSize + kingPadding, r * cellSize + kingPadding, cellSize - kingPadding * 2, cellSize - kingPadding * 2);
                 }
             }
         }
     }
 }
 
+// --- КЛИКИ ---
 void MainWindow::mousePressEvent(QMouseEvent* event) {
+    if (m_gameState != GameState::GamePlay) return; // Исправлено на Gameplay
+
     if (event->button() == Qt::LeftButton) {
-        int col = event->position().x() / CELL_SIZE;
-        int row = event->position().y() / CELL_SIZE;
-        Position clickedPos{row, col};
+        // Учитываем cellSize = 100
+        int col = event->position().x() / 100;
+        int row = event->position().y() / 100;
 
         if (row < 0 || row >= 8 || col < 0 || col >= 8) return;
 
+        Position clickedPos{row, col};
+
         if (!m_hasSelected) {
-            // ПЕРВЫЙ КЛИК: Выбираем шашку
             CellState piece = m_controller.getBoard().getCell(clickedPos);
             Player currentPlayer = m_controller.getCurrentPlayer();
 
-            bool isCorrectSelection = false;
-            if (currentPlayer == Player::White && (piece == CellState::WhitePiece || piece == CellState::WhiteKing)) isCorrectSelection = true;
-            if (currentPlayer == Player::Black && (piece == CellState::BlackPiece || piece == CellState::BlackKing)) isCorrectSelection = true;
+            bool isCorrectSelection = (currentPlayer == Player::White && (piece == CellState::WhitePiece || piece == CellState::WhiteKing)) ||
+                                      (currentPlayer == Player::Black && (piece == CellState::BlackPiece || piece == CellState::BlackKing));
 
             if (isCorrectSelection) {
-                // Если нужно обязательно бить, проверяем конкретно эту выбранную шашку
-                if (m_controller.hasForcedEats()) {
-                    if (!m_controller.canPieceEatOneMore(clickedPos)) {
-                        return; // Мимо, этой шашкой ходить нельзя, нужно бить другой
-                    }
-                }
-
+                if (m_controller.hasForcedEats() && !m_controller.canPieceEatOneMore(clickedPos)) return;
                 m_hasSelected = true;
                 m_selectedPos = clickedPos;
                 update();
             }
         } else {
-            // ВТОРОЙ КЛИК: Делаем ход
             if (clickedPos.row == m_selectedPos.row && clickedPos.col == m_selectedPos.col) {
                 m_hasSelected = false;
                 update();
@@ -120,8 +150,7 @@ void MainWindow::mousePressEvent(QMouseEvent* event) {
 
                 int winner = m_controller.checkGameOver();
                 if (winner != 0) {
-                    QString message = (winner == 1) ? "Белые победили!" : "Черные победили!";
-                    QMessageBox::information(this, "Конец игры", message);
+                    QMessageBox::information(this, "Конец игры", (winner == 1) ? "Белые победили!" : "Черные победили!");
                     m_controller.startNewGame();
                     m_hasSelected = false;
                     update();
@@ -131,6 +160,5 @@ void MainWindow::mousePressEvent(QMouseEvent* event) {
                 update();
             }
         }
-    } // Конец проверки LeftButton
+    }
 }
-
