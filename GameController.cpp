@@ -27,10 +27,10 @@ bool GameController::makeMove(Position from, Position to) {
 
     if (!isSimple && !isEat) return false;
 
-    // Правило обязательного боя
+    // Реализация правила обязательного взятия (если есть возможность бить, простой ход блокируется)
     if (hasForcedEats() && isSimple) return false;
 
-    // Передвигаем фигуру на новую клетку
+    // Применение изменений к модели данных (перемещение фигуры)
     CellState movingPiece = m_board.getCell(from);
     m_board.setCell(to, movingPiece);
     m_board.setCell(from, CellState::Empty);
@@ -76,14 +76,16 @@ bool GameController::isValidSimpleMove(Position from, Position to) const {
         if (m_currentPlayer == Player::White && rowDiff != -1) return false;
         if (m_currentPlayer == Player::Black && rowDiff != 1) return false;
     } else {
-        // дамка с ходом по всей диагонали, вычисляем направление движения (-1 или 1)
+        // Реализация правил "длинной" (летящей) дамки согласно правилам русских шашек.
+        // Вычисляем единичный вектор направления движения (шаг по строке и столбцу).
         int stepRow = (rowDiff > 0) ? 1 : -1;
         int stepCol = (colDiff > 0) ? 1 : -1;
 
         int currentRow = from.row + stepRow;
         int currentCol = from.col + stepCol;
 
-        // смотрим все ли клетки между стартом и финишем
+        // Линейное сканирование диагонали: проверяем, что все клетки между
+        // стартовой и конечной позициями строго свободны.
         while(currentRow != to.row && currentCol != to.col) {
             if (m_board.getCell({currentRow, currentCol}) != CellState::Empty) {
                 return false; // дамку останавливает фигура
@@ -196,7 +198,7 @@ int GameController::checkGameOver() const {
 bool GameController::canPieceEatOneMore(Position pos) const {
     CellState state = m_board.getCell(pos);
     bool isKing = (state == CellState::WhiteKing || state == CellState::BlackKing);
-
+    // Векторы направлений для пошагового сканирования 4-х смежных диагоналей
     int directions[4][2] = {{1, 1}, {1, -1}, {-1, 1}, {-1, -1}};
 
     for (int i = 0; i < 4; ++i) {
@@ -204,7 +206,7 @@ bool GameController::canPieceEatOneMore(Position pos) const {
         int stepCol = directions[i][1];
 
         if (!isKing) {
-            // Обычная пешка проверяет только прыжок на 2 клетки
+            // Обычная шашка: проверяет строго фиксированный прыжок на 2 клетки во всех направлениях
             Position targetPos{pos.row + stepRow * 2, pos.col + stepCol * 2};
             if(isValidEatMove(pos, targetPos)) return true;
         } else {
