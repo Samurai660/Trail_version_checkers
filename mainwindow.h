@@ -43,8 +43,8 @@ private:
     Position m_selectedPos;
 
     //размеры игры
-    static const int CELL_SIZE = 90;
-    static const int BOARD_SIZE = 720;
+    static const int CELL_SIZE = 100;
+    static const int BOARD_SIZE = 800;
     static const int PANEL_WUI = 280;
 
     // кнопки

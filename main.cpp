@@ -7,8 +7,8 @@ int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
 
-    // ---- НАШ ТЕСТОВЫЙ БЛОК ----
-    Board testBoard; // Создаем объект доски. Внутри сразу сработает расстановка!
+
+    Board testBoard; // Создаем объект доски.
 
     std::cout << "--- TEST BOARD CHESSBOARD ---" << std::endl;
     for (int r = 0; r < 8; ++r) {
@@ -28,7 +28,6 @@ int main(int argc, char *argv[])
         std::cout << std::endl; // Перенос строки в конце каждого ряда
     }
     std::cout << "-----------------------------" << std::endl;
-    // ----------------------------
 
     MainWindow w;
     w.show();

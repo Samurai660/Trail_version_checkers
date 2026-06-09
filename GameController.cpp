@@ -41,7 +41,7 @@ bool GameController::makeMove(Position from, Position to) {
     }
 
     // Смотрим, не стала ли шашка дамкой
-    checkKingPromtion(to);
+    checkKingPromotion(to);
 
     // Если был бой и можно бить дальше этой же фигурой — продолжаем серию
     if (isEat && canPieceEatOneMore(to)) {
@@ -76,18 +76,17 @@ bool GameController::isValidSimpleMove(Position from, Position to) const {
         if (m_currentPlayer == Player::White && rowDiff != -1) return false;
         if (m_currentPlayer == Player::Black && rowDiff != 1) return false;
     } else {
-        // ДЛИННАЯ ДАМКА: летит на любое расстояние, а не как английская хуйня!
-        // Вычисляем направление движения (-1 или 1)
+        // дамка с ходом по всей диагонали, вычисляем направление движения (-1 или 1)
         int stepRow = (rowDiff > 0) ? 1 : -1;
         int stepCol = (colDiff > 0) ? 1 : -1;
 
         int currentRow = from.row + stepRow;
         int currentCol = from.col + stepCol;
 
-        // Чекаем все клетки между стартом и финишем
+        // смотрим все ли клетки между стартом и финишем
         while(currentRow != to.row && currentCol != to.col) {
             if (m_board.getCell({currentRow, currentCol}) != CellState::Empty) {
-                return false; // На пути стоит фигура — дамка споткнулась
+                return false; // дамку останавливает фигура
             }
             currentRow += stepRow;
             currentCol += stepCol;
@@ -101,7 +100,7 @@ void GameController::switchPlayer(){
     // Тернарный оператор: если ходили белые — ставим черных, и наоборот
     m_currentPlayer = (m_currentPlayer == Player::White) ? Player::Black : Player::White;
 }
-//Функция кушания
+//функция взятия фигур
 bool GameController::isValidEatMove(Position from, Position to) const {
     if (!m_board.isValidPosition(from) || !m_board.isValidPosition(to)) return false;
 
@@ -136,7 +135,7 @@ bool GameController::isValidEatMove(Position from, Position to) const {
             return (middleState == CellState::WhitePiece || middleState == CellState::WhiteKing);
         }
     } else {
-        // ДЛИННАЯ ДАМКА: ищет врага на всей линии
+        // дамка ищет врага на всей линии
         int stepRow = (rowDiff > 0) ? 1 : -1;
         int stepCol = (colDiff > 0) ? 1 : -1;
 
@@ -157,7 +156,7 @@ bool GameController::isValidEatMove(Position from, Position to) const {
             currentCol += stepCol;
         }
 
-        // Дамка может съесть, только если на пути встретилась РОВНО ОДНА фигура
+        // Дамка может съесть, только если на пути встретилась фигура
         if (piecesFound != 1) return false;
 
         // Проверяем, что эта фигура была вражеской
@@ -197,7 +196,7 @@ int GameController::checkGameOver() const {
 bool GameController::canPieceEatOneMore(Position pos) const {
     CellState state = m_board.getCell(pos);
     bool isKing = (state == CellState::WhiteKing || state == CellState::BlackKing);
-    //это пизда, в рот ебал эти дамки
+
     int directions[4][2] = {{1, 1}, {1, -1}, {-1, 1}, {-1, -1}};
 
     for (int i = 0; i < 4; ++i) {
@@ -209,7 +208,7 @@ bool GameController::canPieceEatOneMore(Position pos) const {
             Position targetPos{pos.row + stepRow * 2, pos.col + stepCol * 2};
             if(isValidEatMove(pos, targetPos)) return true;
         } else {
-            // Дамка сканирует смотрит во всю длину, ищет, куда приземлиться после гипотетического удара
+            // просмотр дамкой всей длинны для потенциального взятия фигуры
             int r = pos.row + stepRow;
             int c = pos.col + stepCol;
 
@@ -233,7 +232,7 @@ bool GameController::isOwnPiece(CellState piece) const {
     }
 }
 
-// Удаляем врага, которого перепрыгнули
+// Удаляем врага, которого взяли
 void GameController::removeEatenPiece(Position from, Position to) {
     int rowDiff = to.row - from.row;
     int colDiff = to.col - from.col;
@@ -255,7 +254,7 @@ void GameController::removeEatenPiece(Position from, Position to) {
 }
 
 // Проверяем достижение края доски
-void GameController::checkKingPromtion(Position pos) {
+void GameController::checkKingPromotion(Position pos) {
     CellState piece = m_board.getCell(pos);
     if (m_currentPlayer == Player::White && pos.row == 0 && piece == CellState::WhitePiece) {
         m_board.setCell(pos, CellState::WhiteKing);

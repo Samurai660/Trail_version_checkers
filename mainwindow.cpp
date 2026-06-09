@@ -15,7 +15,7 @@ MainWindow::~MainWindow() {
 
 }
 
-// --- КНОПКИ ---
+//
 void MainWindow::initInterfaceButtons() {
     QString btnStyle = "QPushButton { background-color: #4a4a4a; color: white; border: 2px solid #2a2a2a; border-radius: 5px; font-weight: bold; }";
 
@@ -36,14 +36,14 @@ void MainWindow::updateButtonsVisibility() {
     m_btnPlay->setVisible(showButtons);
     m_btnExitMenu->setVisible(showButtons);
 }
-// --- СЛОТЫ ---
+//
 void MainWindow::onStartGameClicked() {
     m_gameState = GameState::GamePlay; // Исправлено на Gameplay
     m_controller.startNewGame();
     updateButtonsVisibility();
     update();
 }
-
+//выход из игры
 void MainWindow::onExitClicked() {
     close();
 }
@@ -59,8 +59,6 @@ void MainWindow::paintEvent(QPaintEvent* event) {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
 
-    // Доска 8x8, каждая клетка по 100px (800 / 8 = 100)
-    int cellSize = 100;
 
     for(int r = 0; r < 8; ++r){
         for(int c = 0; c < 8; ++c){
@@ -69,7 +67,7 @@ void MainWindow::paintEvent(QPaintEvent* event) {
             painter.setPen(Qt::NoPen);
 
             painter.setBrush((r + c) % 2 == 0 ? QColor(240,217,181) : QColor(181, 136, 99));
-            painter.drawRect(c * cellSize, r * cellSize, cellSize, cellSize);
+            painter.drawRect(c * CELL_SIZE, r * CELL_SIZE, CELL_SIZE, CELL_SIZE);
 
 
             // --- 2. РИСУЕМ ШАШКУ И ВЫДЕЛЕНИЕ ---
@@ -81,7 +79,7 @@ void MainWindow::paintEvent(QPaintEvent* event) {
             // Подсветка выбранной шашки
             if (m_hasSelected && m_selectedPos.row == r && m_selectedPos.col == c){
                 painter.setBrush(QColor(46, 204, 113, 100)); // Полупрозрачный зеленый
-                painter.drawRect(c * cellSize, r * cellSize, cellSize, cellSize);
+                painter.drawRect(c * CELL_SIZE, r * CELL_SIZE, CELL_SIZE, CELL_SIZE);
             }
 
             // Рисование шашки
@@ -93,12 +91,12 @@ void MainWindow::paintEvent(QPaintEvent* event) {
                 painter.setPen(isWhite ? QPen(Qt::black, 2) : QPen(Qt::white, 2));
 
                 int padding = 12;
-                painter.drawEllipse(c * cellSize + padding, r * cellSize + padding, cellSize - padding * 2, cellSize - padding * 2);
+                painter.drawEllipse(c * CELL_SIZE + padding, r * CELL_SIZE + padding, CELL_SIZE - padding * 2, CELL_SIZE - padding * 2);
 
                 if (isKing){
                     painter.setBrush(QColor(255, 215, 0)); // Золотой цвет короны
-                    int kingPadding = cellSize / 3;
-                    painter.drawEllipse(c * cellSize + kingPadding, r * cellSize + kingPadding, cellSize - kingPadding * 2, cellSize - kingPadding * 2);
+                    int kingPadding = CELL_SIZE / 3;
+                    painter.drawEllipse(c * CELL_SIZE + kingPadding, r * CELL_SIZE + kingPadding, CELL_SIZE - kingPadding * 2, CELL_SIZE - kingPadding * 2);
                 }
             }
         }
@@ -118,7 +116,7 @@ void MainWindow::paintEvent(QPaintEvent* event) {
             text = "CHECKERS";
         } else if (m_gameState == GameState::GameOver) {
             int winner = m_controller.checkGameOver();
-            text = (winner == 1) ? "БЕЛЫЕ ПОБЕДИЛИ!" : "ЧЕРНЫЕ ПОБЕДИЛИ!";
+            text = (winner == 1) ? "Win by white!" : "Black is winner!";
         }
 
         // СДВИГАЕМ ТЕКСТ ВЫШЕ: вместо 0 по Y ставим 120, а высоту ограничиваем в 100 пикселей.
@@ -132,10 +130,10 @@ void MainWindow::mousePressEvent(QMouseEvent* event) {
     if (m_gameState != GameState::GamePlay) return;
 
     if (event->button() == Qt::LeftButton) {
-        // Учитываем cellSize = 100
-        int col = event->position().x() / 100;
-        int row = event->position().y() / 100;
-
+        // Переводим пиксели клика в индексы матрицы через CELL_SIZE
+        int col = event->position().x() / CELL_SIZE;
+        int row = event->position().y() / CELL_SIZE;
+        // Проверяем, что клик не вышел за пределы игрового поля
         if (row < 0 || row >= 8 || col < 0 || col >= 8) return;
 
         Position clickedPos{row, col};

@@ -29,7 +29,7 @@ private:
     //проверка свой - чужой
     void removeEatenPiece(Position from, Position to);
     //проверка на дамку
-    void checkKingPromtion(Position pos);
+    void checkKingPromotion(Position pos);
 
 };
 
