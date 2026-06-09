@@ -72,7 +72,7 @@ void MainWindow::paintEvent(QPaintEvent* event){
     }
 }
 
-void MainWindow::mousePressEvent (QMouseEvent* event){
+void MainWindow::mousePressEvent(QMouseEvent* event) {
     if (event->button() == Qt::LeftButton) {
         int col = event->position().x() / CELL_SIZE;
         int row = event->position().y() / CELL_SIZE;
@@ -80,8 +80,8 @@ void MainWindow::mousePressEvent (QMouseEvent* event){
 
         if (row < 0 || row >= 8 || col < 0 || col >= 8) return;
 
-        if (!m_hasSelected){
-            // ПЕРВЫЙ КЛИК: Выбор шашки
+        if (!m_hasSelected) {
+            // ПЕРВЫЙ КЛИК: Выбираем шашку
             CellState piece = m_controller.getBoard().getCell(clickedPos);
             Player currentPlayer = m_controller.getCurrentPlayer();
 
@@ -90,53 +90,47 @@ void MainWindow::mousePressEvent (QMouseEvent* event){
             if (currentPlayer == Player::Black && (piece == CellState::BlackPiece || piece == CellState::BlackKing)) isCorrectSelection = true;
 
             if (isCorrectSelection) {
+                // Если нужно обязательно бить, проверяем конкретно эту выбранную шашку
+                if (m_controller.hasForcedEats()) {
+                    if (!m_controller.canPieceEatOneMore(clickedPos)) {
+                        return; // Мимо, этой шашкой ходить нельзя, нужно бить другой
+                    }
+                }
+
                 m_hasSelected = true;
                 m_selectedPos = clickedPos;
                 update();
             }
         } else {
-            // ВТОРОЙ КЛИК: Попытка совершить ход
-            Position oldPos = m_selectedPos; // запоминаем откуда ходили
-            Player playerBeforeMove = m_controller.getCurrentPlayer(); // запоминаем чей был ход
+            // ВТОРОЙ КЛИК: Делаем ход
+            if (clickedPos.row == m_selectedPos.row && clickedPos.col == m_selectedPos.col) {
+                m_hasSelected = false;
+                update();
+                return;
+            }
 
             if (m_controller.makeMove(m_selectedPos, clickedPos)) {
+                if (m_controller.canPieceEatOneMore(clickedPos) && m_controller.getBoard().getCell(clickedPos) != CellState::Empty) {
+                    m_selectedPos = clickedPos;
+                    m_hasSelected = true;
+                } else {
+                    m_hasSelected = false;
+                }
                 update();
 
-                int status = m_controller.checkGameOver();
-                if (status != 0){
-                    QString mesForWinner = (status == 1) ? "Hell Yeah! White is winner." : "Fatality. Black is winner!";
-                    QMessageBox::information(this, "GAMEOVER", mesForWinner);
+                int winner = m_controller.checkGameOver();
+                if (winner != 0) {
+                    QString message = (winner == 1) ? "Белые победили!" : "Черные победили!";
+                    QMessageBox::information(this, "Конец игры", message);
                     m_controller.startNewGame();
                     m_hasSelected = false;
                     update();
-                    return;
                 }
-
-                // Проверяем: переключил ли этот хуй игрока
-                // Если игрок НЕ изменился, значит началась резняяяя!
-                if (m_controller.getCurrentPlayer() == playerBeforeMove) {
-                    // Оставляем выделение активным, но ПЕРЕНОСИМ его на новую клетку, куда прыгнула шашка
-                    m_hasSelected = true;
-                    m_selectedPos = clickedPos;
-                } else {
-                    // Ход завершён, передали другому игроку
-                    m_hasSelected = false;
-                }
-                update();
             } else {
-                // Если это обычный ход и он не получился — сбрасываем выделение
-                // Но если это было комбо (игрок обязан бить дальше), мы не разрешаем сбрасывать выделение кликом в пустоту
-
-                // Проверяем, находится ли игрок посреди комбо-удара:
-                // Если шашка на старом месте уже пустая (она передвинулась), значит мы в процессе серии
-                if (m_controller.getBoard().getCell(oldPos) == CellState::Empty) {
-                    // Игнорируем неверный клик, заставляя игрока бить дальше правильной шашкой
-                } else {
-                    m_hasSelected = false;
-                    update();
-                }
+                m_hasSelected = false;
+                update();
             }
         }
-    }
+    } // Конец проверки LeftButton
 }
 

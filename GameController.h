@@ -13,6 +13,9 @@ public:
     Player getCurrentPlayer() const; // возвращает игрока, который должен ходить сейчас (white or black)
     bool makeMove (Position from, Position to); // главный метод:пытается передвинуть шашку из from в to. Если ход по правилам - двигает, меняет игрока, возвращает true
     int checkGameOver () const;
+    bool hasForcedEats() const; //есть ли обязательные взятия на доске?
+    //проверка, можно ли съесть еще кого то или нет
+    bool canPieceEatOneMore(Position pos) const;
 private:
     Board m_board; // экземпляр доски с массивом клеток
     Player m_currentPlayer; // перменная, хранящая цвет текущего игровка
@@ -21,8 +24,13 @@ private:
     bool isValidEatMove (Position from, Position to) const;
     // внутренний метод: передает ход от белых к черным и наоборот
     void switchPlayer();
-    //проверка, можно ли съесть еще кого то или нет
-    bool canPieceEatOneMore(Position pos) const;
+    //разделение кода
+    bool isOwnPiece(CellState piece) const;
+    //проверка свой - чужой
+    void removeEatenPiece(Position from, Position to);
+    //проверка на дамку
+    void checkKingPromtion(Position pos);
+
 };
 
 #endif // GAMECONTROLLER_H

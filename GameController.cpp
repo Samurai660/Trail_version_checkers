@@ -21,52 +21,34 @@ Player GameController::getCurrentPlayer() const {
     return m_currentPlayer;
 }
 // попытка соверщить ход
-bool GameController::makeMove(Position from, Position to){
+bool GameController::makeMove(Position from, Position to) {
     bool isSimple = isValidSimpleMove(from, to);
     bool isEat = isValidEatMove(from, to);
 
-    if(!isSimple && !isEat) return false;
+    if (!isSimple && !isEat) return false;
 
+    // Правило обязательного боя
+    if (hasForcedEats() && isSimple) return false;
+
+    // Передвигаем фигуру на новую клетку
     CellState movingPiece = m_board.getCell(from);
     m_board.setCell(to, movingPiece);
     m_board.setCell(from, CellState::Empty);
 
-    // Если это был удар — убираем врага с доски
+    // Если это был бой — зачищаем поле
     if (isEat) {
-        int rowDiff = to.row - from.row;
-        int colDiff = to.col - from.col;
-        int stepRow = (rowDiff > 0) ? 1 : -1;
-        int stepCol = (colDiff > 0) ? 1 : -1;
-
-        int currentRow = from.row + stepRow;
-        int currentCol = from.col + stepCol;
-
-        // Идем по диагонали и стираем первую попавшуюся фигуру
-        while (currentRow != to.row && currentCol != to.col) {
-            if (m_board.getCell({currentRow, currentCol}) != CellState::Empty) {
-                m_board.setCell({currentRow, currentCol}, CellState::Empty); // СЪЕЛИ!
-                break;
-            }
-            currentRow += stepRow;
-            currentCol += stepCol;
-        }
+        removeEatenPiece(from, to);
     }
 
-    // Превращение в дамку при достижении края
-    if (m_currentPlayer == Player::White && to.row == 0 && movingPiece == CellState::WhitePiece){
-        m_board.setCell(to, CellState::WhiteKing);
-        movingPiece = CellState::WhiteKing;
-    }
-    if (m_currentPlayer == Player::Black && to.row == 7 && movingPiece == CellState::BlackPiece){
-        m_board.setCell(to, CellState::BlackKing);
-        movingPiece = CellState::BlackKing;
-    }
+    // Смотрим, не стала ли шашка дамкой
+    checkKingPromtion(to);
 
-    // Проверяем на комбо-удары
+    // Если был бой и можно бить дальше этой же фигурой — продолжаем серию
     if (isEat && canPieceEatOneMore(to)) {
         return true;
     }
 
+    // Смена хода
     switchPlayer();
     return true;
 }
@@ -210,6 +192,8 @@ int GameController::checkGameOver() const {
     }
     return 0;
 }
+// попытка дробления кода
+
 bool GameController::canPieceEatOneMore(Position pos) const {
     CellState state = m_board.getCell(pos);
     bool isKing = (state == CellState::WhiteKing || state == CellState::BlackKing);
@@ -235,6 +219,59 @@ bool GameController::canPieceEatOneMore(Position pos) const {
                 }
                 r += stepRow;
                 c += stepCol;
+            }
+        }
+    }
+    return false;
+}
+// Проверяем, принадлежит ли фигура текущему игроку
+bool GameController::isOwnPiece(CellState piece) const {
+    if (m_currentPlayer == Player::White) {
+        return (piece == CellState::WhitePiece || piece == CellState::WhiteKing);
+    } else {
+        return (piece == CellState::BlackPiece || piece == CellState::BlackKing);
+    }
+}
+
+// Удаляем врага, которого перепрыгнули
+void GameController::removeEatenPiece(Position from, Position to) {
+    int rowDiff = to.row - from.row;
+    int colDiff = to.col - from.col;
+    int stepRow = (rowDiff > 0) ? 1 : -1;
+    int stepCol = (colDiff > 0) ? 1 : -1;
+
+    int currentRow = from.row + stepRow;
+    int currentCol = from.col + stepCol;
+
+    // Сканируем линию и убираем первую встречную фигуру
+    while (currentRow != to.row && currentCol != to.col) {
+        if (m_board.getCell({currentRow, currentCol}) != CellState::Empty) {
+            m_board.setCell({currentRow, currentCol}, CellState::Empty);
+            break;
+        }
+        currentRow += stepRow;
+        currentCol += stepCol;
+    }
+}
+
+// Проверяем достижение края доски
+void GameController::checkKingPromtion(Position pos) {
+    CellState piece = m_board.getCell(pos);
+    if (m_currentPlayer == Player::White && pos.row == 0 && piece == CellState::WhitePiece) {
+        m_board.setCell(pos, CellState::WhiteKing);
+    }
+    if (m_currentPlayer == Player::Black && pos.row == 7 && piece == CellState::BlackPiece) {
+        m_board.setCell(pos, CellState::BlackKing);
+    }
+}
+
+// Проверка всей доски на наличие обязательных ходов
+bool GameController::hasForcedEats() const {
+    for (int r = 0; r < 8; ++r) {
+        for (int c = 0; c < 8; ++c) {
+            Position pos{r, c};
+            if (isOwnPiece(m_board.getCell(pos)) && canPieceEatOneMore(pos)) {
+                return true;
             }
         }
     }
